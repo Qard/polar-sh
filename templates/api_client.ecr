@@ -1,0 +1,226 @@
+# <%= class_name %>
+#
+# API client for <%= tag %> resource operations.
+#
+# This class provides methods for interacting with <%= tag %>-related endpoints
+# in the Polar.sh API. All methods return JSON response strings that can be
+# parsed into appropriate model types.
+#
+# Auto-generated from OpenAPI spec
+module Polar
+  module Api
+    # API client for <%= tag %> operations
+    class <%= class_name %>
+      Log = ::Log.for(self)
+
+      # Creates a new <%= class_name %> instance
+      #
+      # @param client [Client] The Polar API client instance
+      def initialize(@client : Client)
+        Log.debug { "Initialized <%= class_name %> API client" }
+      end
+<%- operations.each do |(path, http_method, operation)| -%>
+<%
+  operation_id = operation["operationId"]?.try(&.as_s) || "unknown"
+  method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+  tag_prefix = to_snake_case(tag) + "_"
+  method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+
+  summary = operation["summary"]?.try(&.as_s)
+  description = operation["description"]?.try(&.as_s)
+
+  params = operation["parameters"]?.try(&.as_a) || [] of JSON::Any
+  path_params = params.select { |p| p["in"]?.try(&.as_s) == "path" }
+  query_params = params.select { |p| p["in"]?.try(&.as_s) == "query" }
+  request_body = operation["requestBody"]?
+
+  # Build method parameters
+  required_params = [] of String
+  optional_params = [] of String
+
+  path_params.each do |param|
+    param_name = param["name"].as_s
+    param_type = map_param_type(param["schema"]?)
+    required = param["required"]?.try(&.as_bool) || false
+    if required
+      required_params << "#{to_snake_case(param_name)} : #{param_type}"
+    else
+      optional_params << "#{to_snake_case(param_name)} : #{param_type}? = nil"
+    end
+  end
+
+  query_params.each do |param|
+    param_name = param["name"].as_s
+    param_type = map_param_type(param["schema"]?)
+    required = param["required"]?.try(&.as_bool) || false
+    if required
+      required_params << "#{to_snake_case(param_name)} : #{param_type}"
+    else
+      optional_params << "#{to_snake_case(param_name)} : #{param_type}? = nil"
+    end
+  end
+
+  # Get request and response types
+  request_body_type = get_request_body_type(operation)
+  response_type = get_response_type(operation)
+
+  if request_body
+    body_type = request_body_type || "JSON::Serializable"
+    required_params << "body : #{body_type}"
+  end
+
+  method_params = required_params + optional_params
+
+  # Build URL with path parameters
+  url_builder = path.dup
+  path_params.each do |param|
+    param_name = param["name"].as_s
+    url_builder = url_builder.gsub("{#{param_name}}", "\#{#{to_snake_case(param_name)}}")
+  end
+-%>
+
+      # <%= sanitize_description(summary) if summary %>
+      #
+<%- if description && description != summary -%>
+<%- sanitize_description(description).lines.each do |line| -%>
+<%= line.empty? ? "      #" : "      # #{line}" %>
+<%- end -%>
+      #
+<%- end -%>
+      # **Endpoint:** `<%= http_method.upcase %> <%= path %>`
+      #
+<%- unless path_params.empty? && query_params.empty? && request_body.nil? -%>
+      # **Parameters:**
+<%- path_params.each do |param| -%>
+<%
+  param_name = to_snake_case(param["name"].as_s)
+  param_desc = sanitize_description(param["description"]?.try(&.as_s) || "Path parameter")
+  param_required = param["required"]?.try(&.as_bool) || false
+-%>
+      # - `<%= param_name %>` (<%= param_required ? "required" : "optional" %>): <%= param_desc %>
+<%- end -%>
+<%- query_params.each do |param| -%>
+<%
+  param_name = to_snake_case(param["name"].as_s)
+  param_desc = sanitize_description(param["description"]?.try(&.as_s) || "Query parameter")
+  param_required = param["required"]?.try(&.as_bool) || false
+-%>
+      # - `<%= param_name %>` (<%= param_required ? "required" : "optional" %>): <%= param_desc %>
+<%- end -%>
+<%- if request_body -%>
+      # - `body` (required): Request body<%= " as #{request_body_type}" if request_body_type %>
+<%- end -%>
+      #
+<%- end -%>
+      # **Returns:**<%= " #{response_type}" if response_type %><%= " JSON response string" unless response_type %>
+      #
+      # **Raises:**
+      # - `ResourceNotFoundError` on 404
+      # - `NotPermittedError` on 403
+      # - `HTTPValidationError` on 422
+      # - `PolarError` on other errors
+      def <%= method_name %><%- unless method_params.empty? -%>(<%= method_params.join(", ") %>)<%- end %><%= " : #{response_type}" if response_type %>
+        Log.debug { "Calling <%= method_name %>" }
+        url = "<%= url_builder %>"
+<%- unless query_params.empty? -%>
+        query_params = {} of String => String
+<%- query_params.each do |param| -%>
+<%- param_name = to_snake_case(param["name"].as_s) -%>
+        query_params["<%= param["name"].as_s %>"] = <%= param_name %>.to_s if <%= param_name %>
+<%- end -%>
+        url += "?" + HTTP::Params.encode(query_params) unless query_params.empty?
+        Log.trace { "Query params: #{query_params}" }
+<%- end -%>
+        response = @client.request("<%= http_method.upcase %>", url<%= ", body: body.to_json" if request_body %>)
+<%- if response_type -%>
+        result = <%= response_type %>.from_json(response)
+        Log.debug { "<%= method_name %> completed successfully" }
+        result
+<%- else -%>
+        Log.debug { "<%= method_name %> completed successfully" }
+        response
+<%- end -%>
+      end
+<%- end -%>
+<%
+  # Generate iterator methods for list operations
+  list_operations = operations.select do |(path, http_method, operation)|
+    operation_id = operation["operationId"]?.try(&.as_s) || ""
+    method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+    tag_prefix = to_snake_case(tag) + "_"
+    method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+
+    # Check if this is a list method that returns ListResource
+    is_list = method_name == "list" || method_name.starts_with?("list_")
+    response_type = get_response_type(operation)
+    is_list_resource = response_type && response_type.starts_with?("Polar::ListResource(")
+
+    is_list && is_list_resource && http_method.upcase == "GET"
+  end
+-%>
+<%- list_operations.each do |(path, http_method, operation)| -%>
+<%
+  operation_id = operation["operationId"]?.try(&.as_s) || "unknown"
+  method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+  tag_prefix = to_snake_case(tag) + "_"
+  method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+
+  # Get the response type and extract the element type
+  response_type = get_response_type(operation)
+  element_type = response_type.try { |rt| rt.match(/Polar::ListResource\((.*)\)/).try(&.[1]) } || "JSON::Any"
+
+  summary = operation["summary"]?.try(&.as_s) || ""
+  params = operation["parameters"]?.try(&.as_a) || [] of JSON::Any
+  query_params = params.select { |p| p["in"]?.try(&.as_s) == "query" && p["name"]?.try(&.as_s) != "page" }
+
+  # Build parameters (excluding page parameter)
+  optional_params = [] of String
+  query_params.each do |param|
+    param_name = param["name"].as_s
+    param_type = map_param_type(param["schema"]?)
+    optional_params << "#{to_snake_case(param_name)} : #{param_type}? = nil"
+  end
+
+  # Build method call parameters
+  call_params = query_params.map { |p| "#{to_snake_case(p["name"].as_s)}: #{to_snake_case(p["name"].as_s)}" }
+-%>
+
+      # Iterate over <%= summary.downcase %>
+      #
+      # Returns a lazy iterator that automatically fetches pages as needed.
+      # This allows you to process results as a stream without loading all
+      # pages into memory at once.
+      #
+      # @return [PaginatedIterator(<%= element_type %>)] Lazy iterator over all items
+      #
+      # ## Example
+      #
+      # ```
+      # # Process all items lazily
+      # client.<%= accessor_name %>.each<%= optional_params.empty? ? "" : "(limit: 50)" %>.each do |item|
+      #   puts item
+      # end
+      #
+      # # Use Iterator methods
+      # client.<%= accessor_name %>.each<%= optional_params.empty? ? "" : "(limit: 100)" %>.first(10).to_a
+      # ```
+      def each<%- unless optional_params.empty? -%>(<%= optional_params.join(", ") %>)<%- end %> : PaginatedIterator(<%= element_type %>)
+        Log.debug { "Creating paginated iterator for <%= method_name %>" }
+        PaginatedIterator(<%= element_type %>).new(->(page : Int32) {
+          <%= method_name %>(<%= (call_params + ["page: page"]).join(", ") %>)
+        })
+      end
+<%- end -%>
+    end
+  end
+
+  # Extend Client class with <%= tag %> API accessor
+  class Client
+    # Access the <%= tag %> API
+    #
+    # @return [Api::<%= class_name %>] The <%= tag %> API client
+    def <%= accessor_name %> : Api::<%= class_name %>
+      Api::<%= class_name %>.new(self)
+    end
+  end
+end

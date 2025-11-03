@@ -1,0 +1,20 @@
+name: polar-sh
+version: 0.1.0
+
+description: |
+  Crystal language client for the Polar.sh API.
+  Auto-generated from the official OpenAPI specification with custom Crystal enhancements.
+
+authors:
+  - Stephen Belanger <admin@stephenbelanger.com>
+
+crystal: '>= 1.17.1'
+
+license: MIT
+
+repository: https://github.com/qard/polar-sh
+homepage: https://github.com/qard/polar-sh
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba

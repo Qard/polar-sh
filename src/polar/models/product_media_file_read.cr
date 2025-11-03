@@ -1,0 +1,67 @@
+# ProductMediaFileRead
+#
+# File to be used as a product media file.
+#
+# Auto-generated from OpenAPI spec
+module Polar
+  module Models
+    # Model representing a ProductMediaFileRead
+    #
+    # This struct is auto-generated from the Polar.sh OpenAPI specification.
+    # It uses `JSON::Serializable` for automatic JSON parsing and serialization.
+    struct ProductMediaFileRead
+      include JSON::Serializable
+      # The ID of the object.
+      @[JSON::Field(key: "id")]
+      getter id : String
+
+      @[JSON::Field(key: "organization_id")]
+      getter organization_id : String
+
+      @[JSON::Field(key: "name")]
+      getter name : String
+
+      @[JSON::Field(key: "path")]
+      getter path : String
+
+      @[JSON::Field(key: "mime_type")]
+      getter mime_type : String
+
+      @[JSON::Field(key: "size")]
+      getter size : Int64
+
+      @[JSON::Field(key: "storage_version")]
+      getter storage_version : JSON::Any
+
+      @[JSON::Field(key: "checksum_etag")]
+      getter checksum_etag : JSON::Any
+
+      @[JSON::Field(key: "checksum_sha256_base64")]
+      getter checksum_sha256_base64 : JSON::Any
+
+      @[JSON::Field(key: "checksum_sha256_hex")]
+      getter checksum_sha256_hex : JSON::Any
+
+      @[JSON::Field(key: "last_modified_at")]
+      getter last_modified_at : JSON::Any
+
+      @[JSON::Field(key: "version")]
+      getter version : JSON::Any
+
+      @[JSON::Field(key: "service")]
+      getter service : String
+
+      @[JSON::Field(key: "is_uploaded")]
+      getter is_uploaded : Bool
+
+      @[JSON::Field(key: "created_at")]
+      getter created_at : Time
+
+      @[JSON::Field(key: "size_readable")]
+      getter size_readable : String
+
+      @[JSON::Field(key: "public_url")]
+      getter public_url : String
+    end
+  end
+end

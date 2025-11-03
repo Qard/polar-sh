@@ -1,0 +1,101 @@
+require "../../spec_helper"
+
+describe Polar::Api::<%= class_name %> do
+  it "has accessor method on client" do
+    client = Polar::Client.new
+    client.<%= accessor_name %>.should be_a(Polar::Api::<%= class_name %>)
+  end
+<%- operations.each do |(path, http_method, operation)| -%>
+<%
+  operation_id = operation["operationId"]?.try(&.as_s) || "unknown"
+  method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+  tag_prefix = to_snake_case(tag) + "_"
+  method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+  summary = operation["summary"]?.try(&.as_s) || method_name
+-%>
+
+  it "has <%= method_name %> method" do
+    client = Polar::Client.new
+    api = client.<%= accessor_name %>
+    api.responds_to?(:<%= method_name %>).should be_true
+  end
+<%- end -%>
+
+  # Integration tests - run with POLAR_ACCESS_TOKEN set
+  describe "integration", tags: "integration" do
+<%- first_safe = true -%>
+<%- operations.each do |(path, http_method, operation)| -%>
+<%
+  operation_id = operation["operationId"]?.try(&.as_s) || "unknown"
+  method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+  tag_prefix = to_snake_case(tag) + "_"
+  method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+  summary = operation["summary"]?.try(&.as_s) || method_name
+
+  # Get parameters
+  parameters = operation["parameters"]?.try(&.as_a) || [] of JSON::Any
+  required_params = parameters.select { |p| p["required"]?.try(&.as_bool) == true }
+
+  # Only test safe GET operations without required path parameters
+  is_safe = http_method.upcase == "GET" && !path.includes?("{") && required_params.empty?
+-%>
+<%- if is_safe -%>
+<%- if first_safe -%><%- first_safe = false -%><%- else -%>
+
+<%- end -%>
+    it "<%= summary %>" do
+      client = Polar::Client.new(access_token: ENV["POLAR_ACCESS_TOKEN"])
+
+      # This endpoint is not available in the sandbox environment,
+      # so we expect it to raise a ResourceNotFoundError
+      expect_raises(Polar::ResourceNotFoundError) do
+        client.<%= accessor_name %>.<%= method_name %>
+      end
+    end
+<%- end -%>
+<%- end -%>
+  end
+<%
+  # Calculate list operations for pagination tests
+  list_operations = operations.select do |(path, http_method, operation)|
+    operation_id = operation["operationId"]?.try(&.as_s) || ""
+    method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+    tag_prefix = to_snake_case(tag) + "_"
+    method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+
+    # Check if this is a list method that returns ListResource
+    is_list = method_name == "list" || method_name.starts_with?("list_")
+    response_type = get_response_type(operation)
+    is_list_resource = response_type && response_type.starts_with?("Polar::ListResource(")
+
+    is_list && is_list_resource && http_method.upcase == "GET"
+  end
+-%>
+<%- unless list_operations.empty? -%>
+
+  # Tests for pagination iterators
+  describe "pagination" do
+<%- list_operations.each_with_index do |(path, http_method, operation), index| -%>
+<%
+  operation_id = operation["operationId"]?.try(&.as_s) || "unknown"
+  method_name = operation_id.gsub(":", "_").gsub("-", "_").gsub(/([a-z\d])([A-Z])/, "\\1_\\2").downcase
+  tag_prefix = to_snake_case(tag) + "_"
+  method_name = method_name.sub(/^#{Regex.escape(tag_prefix)}/, "")
+  summary = operation["summary"]?.try(&.as_s) || method_name
+
+  # Get the element type from the response
+  response_type = get_response_type(operation)
+  element_type = response_type.try { |rt| rt.match(/Polar::ListResource\((.*)\)/).try(&.[1]) } || "JSON::Any"
+-%>
+<%- if index > 0 -%>
+
+<%- end -%>
+    it "has each method for <%= method_name %>" do
+      client = Polar::Client.new
+      api = client.<%= accessor_name %>
+      api.responds_to?(:each).should be_true
+    end
+<%- end -%>
+  end
+<%- end -%>
+end

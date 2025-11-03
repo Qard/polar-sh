@@ -1,0 +1,35 @@
+# <%= class_name %>
+#
+<%- if description -%>
+<%- description.lines.each do |line| -%>
+<%= line.empty? ? "#" : "# #{line}" %>
+<%- end -%>
+#
+<%- end -%>
+# Auto-generated from OpenAPI spec
+module Polar
+  module Models
+    # Model representing a <%= class_name %>
+    #
+    # This struct is auto-generated from the Polar.sh OpenAPI specification.
+    # It uses `JSON::Serializable` for automatic JSON parsing and serialization.
+    struct <%= class_name %>
+      include JSON::Serializable
+<%- properties.each_with_index do |(prop_name, prop_type, prop_required, prop_description), index| -%>
+<%= "\n" if index > 0 -%>
+<%- if prop_description && !prop_description.empty? -%>
+<%- prop_description.lines.each do |line| -%>
+<%= line.empty? ? "      #" : "      # #{line}" %>
+<%- end -%>
+<%- end -%>
+      @[JSON::Field(key: "<%= prop_name %>")]
+      getter <%= to_snake_case(prop_name) %> : <%= prop_type %><% if !prop_required %>?<% end %>
+<%- end -%>
+<%- if properties.empty? %>
+      # This model has no properties in the OpenAPI spec
+      def initialize
+      end
+<%- end %>
+    end
+  end
+end

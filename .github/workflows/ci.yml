@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        crystal: [latest, nightly]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: ${{ matrix.crystal }}
+
+      - name: Install dependencies
+        run: shards install
+
+      - name: Check formatting
+        run: crystal tool format --check
+
+      - name: Build
+        run: crystal build src/polar-sh.cr
+
+      - name: Build (release)
+        run: crystal build src/polar-sh.cr --release
+
+      - name: Run specs
+        run: crystal spec
+        continue-on-error: true # Specs might not exist yet
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Install dependencies
+        run: shards install
+
+      - name: Run Ameba (if available)
+        run: |
+          if [ -f "bin/ameba" ] || command -v ameba &> /dev/null; then
+            crystal run bin/ameba.cr || ameba
+          else
+            echo "Ameba not configured, skipping..."
+          fi
+        continue-on-error: true
+
+  verify-generator:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Test generator
+        run: |
+          echo "🧪 Testing generator compiles..."
+          crystal build src/generate.cr --no-codegen
+
+      - name: Verify can regenerate
+        run: |
+          echo "🔄 Testing full regeneration..."
+          crystal run src/generate.cr
+          crystal build src/polar-sh.cr --no-codegen

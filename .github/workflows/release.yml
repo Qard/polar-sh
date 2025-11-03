@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Install dependencies
+        run: shards install
+
+      - name: Run quality checks
+        run: |
+          crystal tool format --check
+          crystal build src/polar-sh.cr --release
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog for this version
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract changelog section for this version
+            echo "Reading CHANGELOG.md..."
+          else
+            echo "No CHANGELOG.md found"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Polar.sh Crystal SDK v${{ steps.version.outputs.version }}
+
+            ### Installation
+
+            Add to your `shard.yml`:
+            ```yaml
+            dependencies:
+              polar-sh:
+                github: qard/polar-sh
+                version: ~> ${{ steps.version.outputs.version }}
+            ```
+
+            ### What's Changed
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/v${{ steps.version.outputs.version }}/CHANGELOG.md) for details.
+
+            ### Resources
+            - [Polar.sh API Documentation](https://docs.polar.sh/api)
+            - [SDK Documentation](https://github.com/${{ github.repository }}/blob/v${{ steps.version.outputs.version }}/README.md)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Release v${{ steps.version.outputs.version }} created successfully!"
